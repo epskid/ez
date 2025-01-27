@@ -64,7 +64,7 @@ int Log_initialize(LogLevel level, FILE *out) {
 #define LOG_FATAL_PERROR(input, ...)                                           \
     if (__ez_log.level >= LOG_LEVEL_ERROR)                                     \
         lfprintf(__ez_log.out,                                                 \
-                 "[FATAL ERROR] " input "%s\n" __VA_OPT__(, ) __VA_ARGS__,     \
+                 "[FATAL ERROR] " input ": %s\n" __VA_OPT__(, ) __VA_ARGS__,   \
                  strerror(errno));                                             \
     exit(EXIT_FAILURE);
 #define LOG_WARNING(input, ...)                                                \
@@ -87,7 +87,7 @@ int Log_initialize(LogLevel level, FILE *out) {
 #define BAIL_PERROR(input, ...)                                                \
     if (__ez_log.level >= LOG_LEVEL_ERROR)                                     \
         lfprintf(__ez_log.out,                                                 \
-                 "[ERROR] " input "%s\n" __VA_OPT__(, ) __VA_ARGS__,           \
+                 "[ERROR] " input ": %s\n" __VA_OPT__(, ) __VA_ARGS__,         \
                  strerror(errno));                                             \
     return EXIT_FAILURE;
 
@@ -120,6 +120,31 @@ void *Arena_allocate(Arena *arena, size_t requested_amount) {
     }
 
     return allocated;
+}
+
+void *Arena_reallocate(Arena *arena, void *allocated, size_t old_amount,
+                       size_t requested_amount) {
+    if (old_amount == requested_amount) {
+        return arena;
+    }
+
+    if ((char *)allocated + old_amount ==
+        (char *)arena->memory + arena->next_offset) {
+        arena->next_offset += requested_amount;
+        return allocated;
+    }
+
+    void *new_allocated = Arena_allocate(arena, requested_amount);
+    memcpy(new_allocated, allocated, old_amount);
+
+    return new_allocated;
+}
+
+void *Arena_strdup(Arena *arena, char *str) {
+    char *new_str = Arena_allocate(arena, strlen(str) + 1);
+    strcpy(new_str, str);
+
+    return new_str;
 }
 
 void Arena_free(Arena *arena) {
